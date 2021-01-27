@@ -615,6 +615,7 @@ PartSys.prototype.render = function(g_ModelMat) {
   //transform model matrix
   this.MVPMatrix.setIdentity();
   this.MVPMatrix.set(g_ModelMat);
+  this.MVPMatrix.translate(0, 0, 1, 1)
   this.MVPMatrix.rotate(90, 1, 0, 0);  // -spin drawing axes,
 
 	gl.uniform1i(this.u_runModeID, this.runMode);	// run/step/pause the particle system 
