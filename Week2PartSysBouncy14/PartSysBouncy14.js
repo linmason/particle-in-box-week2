@@ -219,10 +219,16 @@ function main() {
 	// END Keyboard & Mouse Event-Handlers---------------------------------------
 
   // Initialize shaders
-  if (!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
-    console.log('main() Failed to intialize shaders.');
-    return;
-  }
+  //if (!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
+    //console.log('main() Failed to intialize shaders.');
+    //return;
+  //}
+
+  // Initialize Particle systems:
+  g_partA.initBouncy2D(gl, 200);        // create a 2D bouncy-ball system where
+                                    // 2 particles bounce within -0.9 <=x,y<0.9
+                                    // and z=0.
+
   gl.clearColor(0.25, 0.25, 0.25, 1);	// RGBA color for clearing WebGL framebuffer
   gl.clear(gl.COLOR_BUFFER_BIT);		  // clear it once to set that color as bkgnd.
 
@@ -234,13 +240,8 @@ function main() {
     return;
   }
 
-  gl.uniformMatrix4fv(g_ModelMatLoc, false, g_ModelMat.elements);
+  //gl.uniformMatrix4fv(g_ModelMatLoc, false, g_ModelMat.elements);
 
-
-  // Initialize Particle systems:
-  g_partA.initBouncy2D(200);        // create a 2D bouncy-ball system where
-                                    // 2 particles bounce within -0.9 <=x,y<0.9
-                                    // and z=0.
   printControls(); 	// Display (initial) particle system values as text on webpage
 	
   // Quick tutorial on synchronous, real-time animation in JavaScript/HTML-5: 

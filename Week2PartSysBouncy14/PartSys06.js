@@ -139,6 +139,45 @@ const NU_EPSILON  = 10E-15;         // a tiny amount; a minimum vector length
 //==============================================================================
 function PartSys() {
 //==============================================================================
+this.VERT_SRC =
+  'precision mediump float;\n' +        // req'd in OpenGL ES if we use 'float'
+  //
+  'uniform   int u_runMode; \n' +         // particle system state: 
+  'uniform mat4 u_ModelMat;\n' +                        // 0=reset; 1= pause; 2=step; 3=run
+  'attribute vec4 a_Position;\n' +
+  'varying   vec4 v_Color; \n' +
+  'void main() {\n' +
+  '  gl_PointSize = 20.0;\n' +            // TRY MAKING THIS LARGER...
+  '  gl_Position = u_ModelMat * a_Position; \n' + 
+  // Let u_runMode determine particle color:
+  '  if(u_runMode == 0) { \n' +
+  '    v_Color = vec4(1.0, 0.0, 0.0, 1.0);  \n' +   // red: 0==reset
+  '    } \n' +
+  '  else if(u_runMode == 1) {  \n' +
+  '    v_Color = vec4(1.0, 1.0, 0.0, 1.0); \n' +  // yellow: 1==pause
+  '    }  \n' +
+  '  else if(u_runMode == 2) { \n' +    
+  '    v_Color = vec4(1.0, 1.0, 1.0, 1.0); \n' +  // white: 2==step
+  '    } \n' +
+  '  else { \n' +
+  '    v_Color = vec4(0.2, 1.0, 0.2, 1.0); \n' +  // green: >=3 ==run
+  '    } \n' +
+  '} \n';
+  // Each instance computes all the on-screen attributes for just one VERTEX,
+  // supplied by 'attribute vec4' variable a_Position, filled from the 
+  // Vertex Buffer Object (VBO) created in g_partA.init().
+  //==============================================================================
+  // Fragment shader program:
+  this.FRAG_SRC =
+  'precision mediump float;\n' +
+  'varying vec4 v_Color; \n' +
+  'void main() {\n' +
+  '  float dist = distance(gl_PointCoord, vec2(0.5, 0.5)); \n' + // MASON change to vec3
+  '  if(dist < 0.5) { \n' + 
+  '   gl_FragColor = vec4((1.0-2.0*dist)*v_Color.rgb, 1.0);\n' +
+  '  } else { discard; }\n' +
+  '}\n';
+
 //=============================================================================
 // Constructor for a new particle system.
   this.randX = 0;   // random point chosen by call to roundRand()
@@ -184,7 +223,7 @@ PartSys.prototype.roundRand = function() {
 // constraint-applying objects, solvers and all other values needed to prepare
 // the particle-system to run without any further adjustments.
 
-PartSys.prototype.initBouncy2D = function(count) {
+PartSys.prototype.initBouncy2D = function(gl, count) {
 //==============================================================================
   // Create all state-variables-------------------------------------------------
   this.partCount = count;
@@ -296,6 +335,20 @@ PartSys.prototype.initBouncy2D = function(count) {
   }
 
   this.FSIZE = this.s1.BYTES_PER_ELEMENT;  // 'float' size, in bytes.
+
+  // a) Compile,link,upload shaders-----------------------------------------------
+  this.shaderLoc = createProgram(gl, this.VERT_SRC, this.FRAG_SRC);
+  if (!this.shaderLoc) {
+    console.log(this.constructor.name + 
+                '.init() failed to create executable Shaders on the GPU. Bye!');
+    return;
+  }
+  // CUTE TRICK: let's print the NAME of this VBObox object: tells us which one!
+  //  else{console.log('You called: '+ this.constructor.name + '.init() fcn!');}
+  
+  gl.useProgram(this.shaderLoc); 
+  gl.program = this.shaderLoc;    // (to match cuon-utils.js -- initShaders())
+
 // Create a vertex buffer object (VBO) in the graphics hardware: get its ID# 
   this.vboID = gl.createBuffer();
   if (!this.vboID) {
