@@ -194,6 +194,9 @@ this.VERT_SRC =
                                   // console.log(this.forceList[0]); prints hello.
   this.limitList = [];            // (empty) array to hold CLimit objects
                                   // for use by doContstraints()
+  // Local version of model and MVP matrices
+  this.MVPMatrix = new Matrix4();
+  this.ModelMatrix = new Matrix4(); // Transforms CVV axes to model axes.
 }
 // HELPER FUNCTIONS:
 //=====================
@@ -609,12 +612,17 @@ PartSys.prototype.render = function(g_ModelMat) {
   // Enable this assignment of the bound buffer to the a_Position variable:
   gl.enableVertexAttribArray(this.a_PositionID);
 
+  //transform model matrix
+  this.MVPMatrix.setIdentity();
+  this.MVPMatrix.set(g_ModelMat);
+  this.MVPMatrix.rotate(90, 1, 0, 0);  // -spin drawing axes,
+
 	gl.uniform1i(this.u_runModeID, this.runMode);	// run/step/pause the particle system 
   
   // push model matrix uniform to GPU
   gl.uniformMatrix4fv(this.u_ModelMatLoc, // GPU location of the uniform
                       false,        // use matrix transpose instead?
-                      g_ModelMat.elements);  // send data from Javascript.
+                      this.MVPMatrix.elements);  // send data from Javascript.
 
   // Draw our VBO's new contents:
   gl.drawArrays(gl.POINTS,          // mode: WebGL drawing primitive to use 
