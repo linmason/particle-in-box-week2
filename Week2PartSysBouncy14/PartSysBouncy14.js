@@ -157,6 +157,7 @@ var g_zOffsetRate = 0;
 //---------------------------------------------------------
 var g_partA = new PartSys();   // create our first particle-system object;
                               // for code, see PartSys.js
+worldBox = new VBObox0();     // Holds VBO & shaders for 3D 'world' ground-plane grid, etc;
 
 
 function main() {
@@ -228,6 +229,8 @@ function main() {
   g_partA.initBouncy2D(gl, 200);        // create a 2D bouncy-ball system where
                                     // 2 particles bounce within -0.9 <=x,y<0.9
                                     // and z=0.
+
+  worldBox.init(gl);    // VBO + shaders + uniforms + attribs for our 3D world,
 
   gl.clearColor(0.25, 0.25, 0.25, 1);	// RGBA color for clearing WebGL framebuffer
   gl.clear(gl.COLOR_BUFFER_BIT);		  // clear it once to set that color as bkgnd.
@@ -394,6 +397,9 @@ function drawAll() {
     //  PARTICLE SIMULATION LOOP: (see Lecture Notes D)
     //
     //==========================================
+    worldBox.switchToMe();  // Set WebGL to render from this VBObox.
+    worldBox.adjust(g_ModelMat);      // Send new values for uniforms to the GPU, and
+    worldBox.draw();        // draw our VBO's contents using our shaders.
     //==========================================    
 		// Make our 'bouncy-ball' move forward by one timestep, but now the 's' key 
 		// will select which kind of solver to use by changing g_partA.solvType:
@@ -406,6 +412,9 @@ function drawAll() {
 
     g_partA.swap();           // Make s2 the new current state s1.s
     //===========================================
+
+    
+
     //===========================================
 	  }
 	else {    // runMode==0 (reset) or ==1 (pause): re-draw existing particles.
