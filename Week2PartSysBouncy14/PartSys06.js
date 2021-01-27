@@ -377,19 +377,7 @@ PartSys.prototype.initBouncy2D = function(gl, count) {
     console.log('PartSys.init() Failed to get the storage location of a_Position');
     return -1;
   }
-  // Tell GLSL to fill the 'a_Position' attribute variable for each shader with
-  // values from the buffer object chosen by 'gl.bindBuffer()' command.
-  // websearch yields OpenGL version: 
-  //		http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribPointer.xml
-  gl.vertexAttribPointer(this.a_PositionID, 
-          4,  // # of values in this attrib (1,2,3,4) 
-          gl.FLOAT, // data type (usually gl.FLOAT)
-          false,    // use integer normalizing? (usually false)
-          PART_MAXVAR*this.FSIZE,  // Stride: #bytes from 1st stored value to next one
-          PART_XPOS * this.FSIZE); // Offset; #bytes from start of buffer to 
-                    // 1st stored attrib value we will actually use.
-  // Enable this assignment of the bound buffer to the a_Position variable:
-  gl.enableVertexAttribArray(this.a_PositionID);
+  
  
   // ---------Set up all uniforms we send to the GPU:
   // Get graphics system storage location of each uniform our shaders use:
@@ -399,174 +387,21 @@ PartSys.prototype.initBouncy2D = function(gl, count) {
   	console.log('PartSys.init() Failed to get u_runMode variable location');
   	return;
   }
+
+  // Get handle to graphics system's storage location of u_ModelMatrix
+  this.u_ModelMatLoc = gl.getUniformLocation(gl.program, 'u_ModelMat');
+  if (!this.u_ModelMatLoc) { 
+    console.log('Failed to get the storage location of u_ModelMat');
+    return;
+  }
+
   // Set the initial values of all uniforms on GPU: (runMode set by keyboard)
 	gl.uniform1i(this.u_runModeID, this.runMode);
 }
 
 PartSys.prototype.initBouncy3D = function(count) { 
 //==============================================================================
-  // Create all state-variables-------------------------------------------------
-  this.partCount = count;
-  this.s1 =    new Float32Array(this.partCount * PART_MAXVAR);
-  this.s2 =    new Float32Array(this.partCount * PART_MAXVAR);
-  this.s1dot = new Float32Array(this.partCount * PART_MAXVAR);  
-        // NOTE: Float32Array objects are zero-filled by default.
-
-  // Create & init all force-causing objects------------------------------------
-  var fTmp = new CForcer();       // create a force-causing object, and
-  // earth gravity for all particles:
-  fTmp.forceType = F_GRAV_E;      // set it to earth gravity, and
-  fTmp.targFirst = 0;             // set it to affect ALL particles:
-  fTmp.partCount = -1;            // (negative value means ALL particles)
-                                  // (and IGNORE all other Cforcer members...)
-  this.forceList.push(fTmp);      // append this 'gravity' force object to 
-                                  // the forceList array of force-causing objects.
-  // drag for all particles:
-  fTmp = new CForcer();           // create a NEW CForcer object 
-                                  // (WARNING! until we do this, fTmp refers to
-                                  // the same memory locations as forceList[0]!!!) 
-  fTmp.forceType = F_DRAG;        // Viscous Drag
-  fTmp.Kdrag = 0.15;              // in Euler solver, scales velocity by 0.85
-  fTmp.targFirst = 0;             // apply it to ALL particles:
-  fTmp.partCount = -1;            // (negative value means ALL particles)
-                                  // (and IGNORE all other Cforcer members...)
-  this.forceList.push(fTmp);      // append this 'gravity' force object to 
-                                  // the forceList array of force-causing objects.
-  // Report:
-  console.log("PartSys.initBouncy2D() created PartSys.forceList[] array of ");
-  console.log("\t\t", this.forceList.length, "CForcer objects:");
-  for(i=0; i<this.forceList.length; i++) {
-    console.log("CForceList[",i,"]");
-    this.forceList[i].printMe();
-    }                   
-
-  // Create & init all constraint-causing objects-------------------------------
-  var cTmp = new CLimit();      // creat constraint-causing object, and
-  cTmp.hitType = HIT_BOUNCE_VEL;  // set how particles 'bounce' from its surface,
-  cTmp.limitType = LIM_VOL;       // confine particles inside axis-aligned 
-                                  // rectangular volume that
-  cTmp.targFirst = 0;             // applies to ALL particles; starting at 0 
-  cTmp.partCount = -1;            // through all the rest of them.
-  cTmp.xMin = -1.0; cTmp.xMax = 1.0;  // box extent:  +/- 1.0 box at origin
-  cTmp.yMin = -1.0; cTmp.yMax = 1.0;
-  cTmp.zMin = -1.0; cTmp.zMax = 1.0;
-  cTmp.Kresti = 1.0;              // bouncyness: coeff. of restitution.
-                                  // (and IGNORE all other CLimit members...)
-  this.limitList.push(cTmp);      // append this 'box' constraint object to the
-                                  // 'limitList' array of constraint-causing objects.                                
-  // Report:
-  console.log("PartSys.initBouncy2D() created PartSys.limitList[] array of ");
-  console.log("\t\t", this.limitList.length, "CLimit objects.");
-
-  this.INIT_VEL =  0.15 * 60.0;   // initial velocity in meters/sec.
-                    // adjust by ++Start, --Start buttons. Original value 
-                    // was 0.15 meters per timestep; multiply by 60 to get
-                    // meters per second.
-  this.drag = 0.985;// units-free air-drag (scales velocity); adjust by d/D keys
-  this.grav = 9.832;// gravity's acceleration(meter/sec^2); adjust by g/G keys.
-                    // on Earth surface, value is 9.832 meters/sec^2.
-  this.resti = 1.0; // units-free 'Coefficient of Restitution' for 
-                    // inelastic collisions.  Sets the fraction of momentum 
-                    // (0.0 <= resti < 1.0) that remains after a ball 
-                    // 'bounces' on a wall or floor, as computed using 
-                    // velocity perpendicular to the surface. 
-                    // (Recall: momentum==mass*velocity.  If ball mass does 
-                    // not change, and the ball bounces off the x==0 wall,
-                    // its x velocity xvel will change to -xvel * resti ).
-                    
-  //--------------------------init Particle System Controls:
-  this.runMode =  3;// Master Control: 0=reset; 1= pause; 2=step; 3=run
-  this.solvType = SOLV_OLDGOOD;// adjust by s/S keys.
-                    // SOLV_EULER (explicit, forward-time, as 
-                    // found in BouncyBall03.01BAD and BouncyBall04.01badMKS)
-                    // SOLV_OLDGOOD for special-case implicit solver, reverse-time, 
-                    // as found in BouncyBall03.GOOD, BouncyBall04.goodMKS)
-  this.bounceType = 1;  // floor-bounce constraint type:
-                    // ==0 for velocity-reversal, as in all previous versions
-                    // ==1 for Chapter 3's collision resolution method, which
-                    // uses an 'impulse' to cancel any velocity boost caused
-                    // by falling below the floor.
-                    
-//--------------------------------Create & fill VBO with state var s1 contents:
-// INITIALIZE s1, s2:
-//  NOTE: s1,s2 are a Float32Array objects, zero-filled by default.
-// That's OK for most particle parameters, but these need non-zero defaults:
-
-  var j = 0;  // i==particle number; j==array index for i-th particle
-  for(var i = 0; i < this.partCount; i += 1, j+= PART_MAXVAR) {
-    this.roundRand();       // set this.randX,randY,randZ to random location in 
-                            // a 3D unit sphere centered at the origin.
-    //all our bouncy-balls stay within a +/- 0.9 cube centered at origin; 
-    // set random positions in a 0.1-radius ball centered at (-0.8,-0.8,-0.8)
-    this.s1[j + PART_XPOS] = -0.8 + 0.1*this.randX; 
-    this.s1[j + PART_YPOS] = -0.8 + 0.1*this.randY;  
-    this.s1[j + PART_ZPOS] = -0.8 + 0.1*this.randZ;
-    this.s1[j + PART_WPOS] =  1.0;      // position 'w' coordinate;
-    this.roundRand(); // Now choose random initial velocities too:
-    this.s1[j + PART_XVEL] =  this.INIT_VEL*(0.4 + 0.2*this.randX);
-    this.s1[j + PART_YVEL] =  this.INIT_VEL*(0.4 + 0.2*this.randY);
-    this.s1[j + PART_ZVEL] =  this.INIT_VEL*(0.4 + 0.2*this.randZ);
-    this.s1[j + PART_MASS] =  1.0;      // mass, in kg.
-    this.s1[j + PART_DIAM] =  2.0 + 10*Math.random(); // on-screen diameter, in pixels
-    this.s1[j + PART_RENDMODE] = 0.0;
-    this.s1[j + PART_AGE] = 30 + 100*Math.random();
-    //----------------------------
-    this.s2.set(this.s1);   // COPY contents of state-vector s1 to s2.
-  }
-
-  this.FSIZE = this.s1.BYTES_PER_ELEMENT;  // 'float' size, in bytes.
-// Create a vertex buffer object (VBO) in the graphics hardware: get its ID# 
-  this.vboID = gl.createBuffer();
-  if (!this.vboID) {
-    console.log('PartSys.init() Failed to create the VBO object in the GPU');
-    return -1;
-  }
-  // "Bind the new buffer object (memory in the graphics system) to target"
-  // In other words, specify the usage of one selected buffer object.
-  // What's a "Target"? it's the poorly-chosen OpenGL/WebGL name for the 
-  // intended use of this buffer's memory; so far, we have just two choices:
-  //  == "gl.ARRAY_BUFFER" meaning the buffer object holds actual values we 
-  //      need for rendering (positions, colors, normals, etc), or 
-  //  == "gl.ELEMENT_ARRAY_BUFFER" meaning the buffer object holds indices 
-  //      into a list of values we need; indices such as object #s, face #s, 
-  //      edge vertex #s.
-  gl.bindBuffer(gl.ARRAY_BUFFER, this.vboID);
-
-  // Write data from our JavaScript array to graphics systems' buffer object:
-  gl.bufferData(gl.ARRAY_BUFFER, this.s1, gl.DYNAMIC_DRAW);
-  // why 'DYNAMIC_DRAW'? Because we change VBO's content with bufferSubData() later
-
-  // ---------Set up all attributes for VBO contents:
-  //Get the ID# for the a_Position variable in the graphics hardware
-  this.a_PositionID = gl.getAttribLocation(gl.program, 'a_Position');
-  if(this.a_PositionID < 0) {
-    console.log('PartSys.init() Failed to get the storage location of a_Position');
-    return -1;
-  }
-  // Tell GLSL to fill the 'a_Position' attribute variable for each shader with
-  // values from the buffer object chosen by 'gl.bindBuffer()' command.
-  // websearch yields OpenGL version: 
-  //    http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribPointer.xml
-  gl.vertexAttribPointer(this.a_PositionID, 
-          4,  // # of values in this attrib (1,2,3,4) 
-          gl.FLOAT, // data type (usually gl.FLOAT)
-          false,    // use integer normalizing? (usually false)
-          PART_MAXVAR*this.FSIZE,  // Stride: #bytes from 1st stored value to next one
-          PART_XPOS * this.FSIZE); // Offset; #bytes from start of buffer to 
-                    // 1st stored attrib value we will actually use.
-  // Enable this assignment of the bound buffer to the a_Position variable:
-  gl.enableVertexAttribArray(this.a_PositionID);
- 
-  // ---------Set up all uniforms we send to the GPU:
-  // Get graphics system storage location of each uniform our shaders use:
-  // (why? see  http://www.opengl.org/wiki/Uniform_(GLSL) )
-  this.u_runModeID = gl.getUniformLocation(gl.program, 'u_runMode');
-  if(!this.u_runModeID) {
-    console.log('PartSys.init() Failed to get u_runMode variable location');
-    return;
-  }
-  // Set the initial values of all uniforms on GPU: (runMode set by keyboard)
-  gl.uniform1i(this.u_runModeID, this.runMode);
+  
 }
 
 PartSys.prototype.initFireReeves = function(count) {
@@ -739,13 +574,17 @@ PartSys.prototype.dotFinder = function(dest, src) {
     }
 }
 
-PartSys.prototype.render = function(s) {
+PartSys.prototype.render = function(g_ModelMat) {
 //==============================================================================
 // Draw the contents of state-vector 's' on-screen. To do this:
 //  a) transfer its contents to the already-existing VBO in the GPU using the
 //      WebGL call 'gl.bufferSubData()', then 
 //  b) set all the 'uniform' values needed by our shaders,
 //  c) draw VBO contents using gl.drawArray().
+
+  gl.useProgram(this.shaderLoc);  
+  gl.program = this.shaderLoc;
+  gl.bindBuffer(gl.ARRAY_BUFFER, this.vboID);
 
   // CHANGE our VBO's contents:
   gl.bufferSubData( 
@@ -756,12 +595,26 @@ PartSys.prototype.render = function(s) {
                     // we begin data replacement.
           this.s1); // Float32Array data source.
 
-	gl.uniform1i(this.u_runModeID, this.runMode);	// run/step/pause the particle system 
+  // Tell GLSL to fill the 'a_Position' attribute variable for each shader with
+  // values from the buffer object chosen by 'gl.bindBuffer()' command.
+  // websearch yields OpenGL version: 
+  //    http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribPointer.xml
+  gl.vertexAttribPointer(this.a_PositionID, 
+          4,  // # of values in this attrib (1,2,3,4) 
+          gl.FLOAT, // data type (usually gl.FLOAT)
+          false,    // use integer normalizing? (usually false)
+          PART_MAXVAR*this.FSIZE,  // Stride: #bytes from 1st stored value to next one
+          PART_XPOS * this.FSIZE); // Offset; #bytes from start of buffer to 
+                    // 1st stored attrib value we will actually use.
+  // Enable this assignment of the bound buffer to the a_Position variable:
+  gl.enableVertexAttribArray(this.a_PositionID);
 
+	gl.uniform1i(this.u_runModeID, this.runMode);	// run/step/pause the particle system 
+  
   // push model matrix uniform to GPU
-  //gl.uniformMatrix4fv(g_ModelMatLoc, // GPU location of the uniform
-                      //false,        // use matrix transpose instead?
-                      //g_ModelMat.elements);  // send data from Javascript.
+  gl.uniformMatrix4fv(this.u_ModelMatLoc, // GPU location of the uniform
+                      false,        // use matrix transpose instead?
+                      g_ModelMat.elements);  // send data from Javascript.
 
   // Draw our VBO's new contents:
   gl.drawArrays(gl.POINTS,          // mode: WebGL drawing primitive to use 

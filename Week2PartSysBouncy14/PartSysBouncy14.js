@@ -232,14 +232,6 @@ function main() {
   gl.clearColor(0.25, 0.25, 0.25, 1);	// RGBA color for clearing WebGL framebuffer
   gl.clear(gl.COLOR_BUFFER_BIT);		  // clear it once to set that color as bkgnd.
 
-
-  // Get handle to graphics system's storage location of u_ModelMatrix
-  g_ModelMatLoc = gl.getUniformLocation(gl.program, 'u_ModelMat');
-  if (!g_ModelMatLoc) { 
-    console.log('Failed to get the storage location of u_ModelMat');
-    return;
-  }
-
   //gl.uniformMatrix4fv(g_ModelMatLoc, false, g_ModelMat.elements);
 
   printControls(); 	// Display (initial) particle system values as text on webpage
@@ -410,12 +402,7 @@ function drawAll() {
     g_partA.solver();         // find s2 from s1 & related states.
     g_partA.doConstraints();  // Apply all constraints.  s2 is ready!
 
-    // push model matrix uniform to GPU
-    gl.uniformMatrix4fv(g_ModelMatLoc, // GPU location of the uniform
-                      false,        // use matrix transpose instead?
-                      g_ModelMat.elements);  // send data from Javascript.
-
-  	g_partA.render();         // transfer current state to VBO, set uniforms, draw it!
+  	g_partA.render(g_ModelMat);         // transfer current state to VBO, set uniforms, draw it!
 
     g_partA.swap();           // Make s2 the new current state s1.s
     //===========================================
