@@ -607,6 +607,29 @@ function myKeyDown(kev) {
 			'myKeyDown() digit 3 key. Run Mode 3: RUN!';      // print on webpage,
 			console.log("Run Mode 3: RUN!");                  // print on console.
       break;
+
+    //----------------WASD keys------------------------
+    case "KeyA":
+      console.log("a/A key: Strafe LEFT!\n");
+      g_strafeTranslate = 1;
+      console.log(g_strafeTranslate);
+      break;
+    case "KeyD":
+      console.log("d/D key: Strafe RIGHT!\n");
+      g_strafeTranslate = -1;
+      console.log(g_strafeTranslate);
+      break;
+    case "KeyS":
+      console.log("s/S key: Move BACK!\n");
+      g_lookatTranslate = -1;
+      console.log(g_lookatTranslate);
+      break;
+    case "KeyW":
+      console.log("w/W key: Move FWD!\n");
+      g_lookatTranslate = 1;
+      console.log(g_lookatTranslate);
+      break;
+
     case "KeyB":                // Toggle floor-bounce constraint type
 			if(g_partA.bounceType==0) g_partA.bounceType = 1;   // impulsive vs simple
 			else g_partA.bounceType = 0;
@@ -753,6 +776,24 @@ function myKeyUp(kev) {
 	console.log("myKeyUp():\n--kev.code:",kev.code,"\t\t--kev.key:", kev.key);
   //----------------Arrow keys------------------------
   switch(kev.code) {
+    //----------------WASD keys------------------------
+    case "KeyA":
+      g_strafeTranslate = 0;
+      console.log(g_strafeTranslate);
+      break;
+    case "KeyD":
+      g_strafeTranslate = 0;
+      console.log(g_strafeTranslate);
+      break;
+    case "KeyS":
+      g_lookatTranslate = 0;
+      console.log(g_lookatTranslate);
+      break;
+    case "KeyW":
+      g_lookatTranslate = 0;
+      console.log(g_lookatTranslate);
+      break;
+
     case "ArrowLeft":   
       g_thetaRate = 0;
       break;
